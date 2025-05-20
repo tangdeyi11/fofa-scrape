@@ -1,10 +1,12 @@
 {
-  "name": "fofa-iptv-scraper",
+  "name": "fofa-scrape",
   "version": "1.0.0",
+  "description": "FOFA HTML scraper",
+  "main": "scrape.js",
   "scripts": {
-    "start": "node scrape.js" // 运行脚本命令
+    "start": "node scrape.js"
   },
   "dependencies": {
-    "puppeteer": "^21.3.8" // 使用 puppeteer 库
+    "puppeteer": "^21.3.8"
   }
 }
