@@ -1,53 +1,34 @@
-const puppeteer = require('puppeteer');
 const fs = require('fs');
+const puppeteer = require('puppeteer');
 
-// 定义要抓取的 URL 列表
 const urls = [
   {
     name: 'iptv',
-    url: 'https://fofa.info/result?qbase64=InVkcHh5IiAmJiBjaXR5PSJCZWlqaW5nIiAmJiBwcm90b2NvbD0iaHR0cCI%3D',
+    url: 'https://fofa.info/result?qbase64=InVkcHh5IiAmJiBjaXR5PSJCZWlqaW5nIiAmJiBwcm90b2NvbD0iaHR0cCI%3D'
   },
   {
     name: 'iptvdl',
-    url: 'https://fofa.info/result?qbase64=InVkcHh5IiAmJiBjaXR5PSJkYWxpYW4iICYmIHByb3RvY29sPSJodHRwIg%3D%3D',
-  },
+    url: 'https://fofa.info/result?qbase64=InVkcHh5IiAmJiBjaXR5PSJkYWxpYW4iICYmIHByb3RvY29sPSJodHRwIg%3D%3D'
+  }
 ];
 
-async function start() {
-  // 启动 Puppeteer 浏览器实例，禁用沙盒机制
-  const browser = await puppeteer.launch({
-    headless: true, // 启动无头浏览器
-    args: ['--no-sandbox', '--disable-setuid-sandbox'], // 禁用沙盒
-  });
+async function scrape() {
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+  const page = await browser.newPage();
 
-  // 遍历 URL 列表，分别抓取不同的页面内容
   for (const { name, url } of urls) {
-    const page = await browser.newPage();
-    
-    try {
-      // 访问指定的 Fofa URL
-      await page.goto(url);
-      
-      // 等待页面加载完成
-      await page.waitForSelector('body');  // 等待页面的 <body> 元素加载
-      
-      // 获取页面的 HTML 内容
-      const html = await page.content();
-      
-      // 将抓取到的 HTML 内容保存到文件
-      const filePath = `${name}.html`;  // 根据 name 动态命名文件
-      fs.writeFileSync(filePath, html);  // 保存 HTML 内容为指定的文件名
-      
-      console.log(`抓取完成，${filePath} 文件已保存！`);
-      
-    } catch (error) {
-      console.error(`${name} 抓取失败:`, error);
-    }
+    await page.goto(url, { waitUntil: 'networkidle2' });
+
+    // 获取页面的 HTML 内容
+    const content = await page.content();
+
+    // 保存到 .txt 文件
+    const fileName = `${name}.txt`;  // 修改为 txt 文件
+    fs.writeFileSync(fileName, content);  // 保存到当前工作目录
+    console.log(`抓取内容已保存到 ${fileName}`);
   }
 
-  // 关闭浏览器实例
   await browser.close();
 }
 
-// 执行抓取操作
-start().catch(console.error);
+scrape();
