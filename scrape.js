@@ -2,7 +2,9 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-// 定义要抓取的 URL 列表
+// ✏️ 请将这里替换为你自己的 fofa_token（从浏览器中登录 FOFA 后复制）
+const FOFA_TOKEN = 'eyJhbGciOiJIUzUxMiIsImtpZCI6Ik5XWTVZakF4TVRkalltSTJNRFZsWXpRM05EWXdaakF3TURVMlkyWTNZemd3TUdRd1pUTmpZUT09IiwidHlwIjoiSldUIn0.eyJpZCI6Mjg2MjU2LCJtaWQiOjEwMDE2MjI2MiwidXNlcm5hbWUiOiJEZWFu77yI6Y-e54eD77yJIiwicGFyZW50X2lkIjowLCJleHAiOjE3NDgyNDczODV9.iXllGEIf5373VsNpyAqCncW6pgZGX9rtQF4iRfyT7NE7uSi80Xqy3c7gc_1PfzoR8jmkzUhhwgZKfaop4l7WuQ';
+
 const urls = [
   {
     name: 'iptv',
@@ -15,40 +17,45 @@ const urls = [
 ];
 
 async function start() {
-  // 启动 Puppeteer 浏览器实例，禁用沙盒机制
   const browser = await puppeteer.launch({
-    headless: true, // 启动无头浏览器
-    args: ['--no-sandbox', '--disable-setuid-sandbox'], // 禁用沙盒
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
-  // 遍历 URL 列表，分别抓取不同的页面内容
   for (const { name, url } of urls) {
     const page = await browser.newPage();
-    
-    try {
-      // 访问指定的 Fofa URL
-      await page.goto(url);
-      
-      // 等待页面加载完成
-      await page.waitForSelector('body');  // 等待页面的 <body> 元素加载
-      
-      // 获取页面的 HTML 内容
-      const html = await page.content();
-      
-      // 将抓取到的 HTML 内容保存到文件
-      const filePath = path.join(__dirname, `${name}.txt`);  // 动态命名文件，并确保文件路径正确
-      fs.writeFileSync(filePath, html);  // 保存 HTML 内容为指定的文件名
 
-      console.log(`抓取完成，${filePath} 文件已保存！`);
-      
-    } catch (error) {
-      console.error(`${name} 抓取失败:`, error);
+    try {
+      // ✅ 设置 FOFA 登录 Cookie
+      await page.setCookie({
+        name: 'fofa_token',
+        value: FOFA_TOKEN,
+        domain: 'fofa.info',
+        path: '/',
+        httpOnly: false,
+        secure: true,
+      });
+
+      // 访问 FOFA 页面
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+      // 等待 body 元素确保加载完成
+      await page.waitForSelector('body');
+
+      // 获取完整 HTML 内容
+      const html = await page.content();
+
+      // 保存为 txt 文件
+      const filePath = path.join(__dirname, `${name}.txt`);
+      fs.writeFileSync(filePath, html);
+
+      console.log(`✅ 抓取完成：${filePath}`);
+    } catch (err) {
+      console.error(`❌ 抓取失败（${name}）：`, err);
     }
   }
 
-  // 关闭浏览器实例
   await browser.close();
 }
 
-// 执行抓取操作
 start().catch(console.error);
