@@ -1,33 +1,53 @@
-// 引入 puppeteer 模块，用于无头浏览器抓取网页
 const puppeteer = require('puppeteer');
-// 引入文件系统模块，用于将网页内容写入文件
 const fs = require('fs');
 
-(async () => {
-  // 启动无头浏览器
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage(); // 打开新页面
+// 定义要抓取的 URL 列表
+const urls = [
+  {
+    name: 'iptv',
+    url: 'https://fofa.info/result?qbase64=InVkcHh5IiAmJiBjaXR5PSJCZWlqaW5nIiAmJiBwcm90b2NvbD0iaHR0cCI%3D',
+  },
+  {
+    name: 'iptvdl',
+    url: 'https://fofa.info/result?qbase64=InVkcHh5IiAmJiBjaXR5PSJkYWxpYW4iICYmIHByb3RvY29sPSJodHRwIg%3D%3D',
+  },
+];
 
-  // 定义要抓取的目标：名称 + URL
-  const targets = [
-    {
-      name: 'iptv',
-      url: 'https://fofa.info/result?qbase64=InVkcHh5IiAmJiBjaXR5PSJCZWlqaW5nIiAmJiBwcm90b2NvbD0iaHR0cCI%3D'
-    },
-    {
-      name: 'iptvdl',
-      url: 'https://fofa.info/result?qbase64=InVkcHh5IiAmJiBjaXR5PSJkYWxpYW4iICYmIHByb3RvY29sPSJodHRwIg%3D%3D'
+async function start() {
+  // 启动 Puppeteer 浏览器实例，禁用沙盒机制
+  const browser = await puppeteer.launch({
+    headless: true, // 启动无头浏览器
+    args: ['--no-sandbox', '--disable-setuid-sandbox'], // 禁用沙盒
+  });
+
+  // 遍历 URL 列表，分别抓取不同的页面内容
+  for (const { name, url } of urls) {
+    const page = await browser.newPage();
+    
+    try {
+      // 访问指定的 Fofa URL
+      await page.goto(url);
+      
+      // 等待页面加载完成
+      await page.waitForSelector('body');  // 等待页面的 <body> 元素加载
+      
+      // 获取页面的 HTML 内容
+      const html = await page.content();
+      
+      // 将抓取到的 HTML 内容保存到文件
+      const filePath = `${name}.html`;  // 根据 name 动态命名文件
+      fs.writeFileSync(filePath, html);  // 保存 HTML 内容为指定的文件名
+      
+      console.log(`抓取完成，${filePath} 文件已保存！`);
+      
+    } catch (error) {
+      console.error(`${name} 抓取失败:`, error);
     }
-  ];
-
-  // 依次访问每个 URL 并保存 HTML 内容
-  for (const target of targets) {
-    await page.goto(target.url, { waitUntil: 'networkidle2' }); // 等待页面加载完成
-    const html = await page.content(); // 获取 HTML 内容
-    fs.writeFileSync(`${target.name}.html`, html); // 写入本地文件
-    console.log(`Saved ${target.name}.html`);
   }
 
-  // 关闭浏览器
+  // 关闭浏览器实例
   await browser.close();
-})();
+}
+
+// 执行抓取操作
+start().catch(console.error);
