@@ -1,39 +1,33 @@
-name: Fofa Scraper
+name: Scrape FOFA Pages
 
 on:
   schedule:
-    # 每6小时执行一次任务
-    - cron: '0 */6 * * *'  # 每 6 小时执行一次，使用 UTC 时间
-  workflow_dispatch:  # 允许手动触发工作流
+    - cron: '0 */6 * * *'    # 每6小时执行一次（UTC 时间）
+  workflow_dispatch:         # 支持手动手动触发运行
 
 jobs:
   scrape:
-    runs-on: ubuntu-latest  # 使用 Ubuntu 最新版本的虚拟环境
+    runs-on: ubuntu-latest    # 使用 GitHub 提供的 Ubuntu 环境
 
     steps:
-    # 第一步：检出代码
-    - name: Check out repository
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4   # 拉取当前仓库代码
 
-    # 第二步：设置 Node.js 环境
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'  # 设置 Node.js 版本（根据需要调整）
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'        # 使用 Node.js v20
 
-    # 第三步：安装依赖
-    - name: Install dependencies
-      run: npm install
+      - name: Install dependencies
+        run: npm install            # 安装 puppeteer 等依赖
 
-    # 第四步：运行抓取脚本
-    - name: Run scraper script
-      run: node scrape.js
+      - name: Run scraper
+        run: npm start              # 执行 scrape.js 脚本
 
-    # 第五步：上传抓取结果（iptv.txt 和 iptvdl.txt）为工作流工件
-    - name: Upload scrape results
-      uses: actions/upload-artifact@v3
-      with:
-        name: fofa-scrape-results
-        path: |
-          iptv.txt
-          iptvdl.txt
+      - name: Upload output TXT files
+        uses: actions/upload-artifact@v4
+        with:
+          name: fofa-txt
+          path: |
+            iptv.txt
+            iptvdl.txt
