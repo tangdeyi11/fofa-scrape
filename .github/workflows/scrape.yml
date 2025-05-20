@@ -1,6 +1,5 @@
 name: Scrape FOFA Pages
 
-# 触发条件
 on:
   schedule:
     - cron: '0 */6 * * *'  # 每6小时执行一次（UTC 时间）
@@ -12,10 +11,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3  # 拉取你仓库中的代码
+        uses: actions/checkout@v4  # 使用 actions/checkout@v4 版本
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4  # 使用 actions/setup-node@v4 版本
         with:
           node-version: '20'       # 安装 Node.js 20 版本
 
@@ -26,7 +25,7 @@ jobs:
         run: npm start             # 执行爬虫脚本 scrape.js
 
       - name: Upload output HTML files
-        uses: actions/upload-artifact@v3  # 上传输出的 HTML 文件供下载
+        uses: actions/upload-artifact@v4  # 使用 actions/upload-artifact@v4 版本
         with:
           name: fofa-html
           path: |
