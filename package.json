@@ -1,0 +1,10 @@
+{
+  "name": "fofa-iptv-scraper",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node scrape.js" // 运行脚本命令
+  },
+  "dependencies": {
+    "puppeteer": "^21.3.8" // 使用 puppeteer 库
+  }
+}
