@@ -4,7 +4,7 @@
   "description": "FOFA HTML scraper",
   "main": "scrape.js",
   "scripts": {
-    "start": "node scrape.js"
+    "start": "node scrape-old.js"
   },
   "dependencies": {
     "puppeteer": "^22.8.2"
