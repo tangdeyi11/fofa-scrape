@@ -27,8 +27,8 @@ async function fetchDataFromUrl(page, url) {
     // 获取完整 HTML 内容
     const html = await page.content();
 
-    // 保存为 txt 文件
-    const filePath = path.join(__dirname, `${url.name}.txt`);
+    // 保存为 txt 文件，路径为仓库根目录
+    const filePath = path.join(process.cwd(), `${url.name}.txt`);  // 使用 process.cwd() 获取仓库根目录
     fs.writeFileSync(filePath, html);
 
     console.log(`✅ 抓取完成：${filePath}`);
