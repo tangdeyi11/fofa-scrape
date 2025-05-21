@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
+const path = require('path');
 
 // 读取 EditThisCookie 导出的原始 Cookie 文件并转换格式
 async function loadCookies(filePath) {
@@ -20,14 +21,20 @@ async function loadCookies(filePath) {
 async function fetchDataFromUrl(page, url) {
   console.log(`正在访问: ${url.name}`);
 
-  await page.goto(url.url, { waitUntil: 'domcontentloaded' });
+  try {
+    await page.goto(url.url, { waitUntil: 'domcontentloaded' });
 
-  // 模拟获取页面内容（这里可以根据实际需要爬取数据）
-  const data = await page.content(); // 获取页面 HTML 内容
-  console.log(`已成功获取数据: ${url.name}`);
+    // 获取完整 HTML 内容
+    const html = await page.content();
 
-  // 你可以根据需求，在这里提取你需要的数据
-  return data;
+    // 保存为 txt 文件
+    const filePath = path.join(__dirname, `${url.name}.txt`);
+    fs.writeFileSync(filePath, html);
+
+    console.log(`✅ 抓取完成：${filePath}`);
+  } catch (err) {
+    console.error(`❌ 抓取失败（${url.name}）：`, err);
+  }
 }
 
 // 启动浏览器并处理多个 URL
@@ -83,12 +90,7 @@ async function run() {
   ];
 
   // 使用 Promise.all() 并行抓取两个 URL 数据
-  const result = await Promise.all(urls.map(url => fetchDataFromUrl(page, url)));
-
-  // 输出抓取的数据
-  result.forEach((data, index) => {
-    console.log(`数据抓取结果 (${urls[index].name}):\n`, data);
-  });
+  await Promise.all(urls.map(url => fetchDataFromUrl(page, url)));
 
   // 结束时关闭浏览器
   await browser.close();
@@ -96,4 +98,3 @@ async function run() {
 
 // 执行脚本
 run().catch(console.error);
-
