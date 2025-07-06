@@ -11,6 +11,8 @@ permissions:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    env:
+      MY_COOKIES: ${{ secrets.MY_COOKIES }}  # ✅ 注入 Secret 成为环境变量
 
     steps:
       - name: Checkout code
