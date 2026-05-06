@@ -7,11 +7,11 @@ const path = require('path');            // 路径工具，确保跨平台路径
 const urls = [
   {
     name: 'iptv',
-    url: 'https://fofa.info/result?qbase64=InVkcHh5IiAmJiBjaXR5PSJCZWlqaW5nIiAmJiAoYXNuPSI0ODA4IiB8fCBhc249IjQ4MzciKSAmJiBwcm90b2NvbCE9Imh0dHAi',
+    url: 'https://fofa.info/result?qbase64=c2VydmVyPSJ1ZHB4eSIgJiYgY2l0eT0iQmVpamluZyIgJiYgKGFzbj0iNDgwOCIgfHwgYXNuPSI0ODM3Iik=',
   },
   {
     name: 'iptvdl',
-    url: 'https://fofa.info/result?qbase64=InVkcHh5IiAmJiBjaXR5PSJEYWxpYW4iICYmIHByb3RvY29sIT0iaHR0cCI%3D',
+    url: 'https://fofa.info/result?qbase64=c2VydmVyPSJ1ZHB4eSIgJiYgY2l0eT0iRGFsaWFuIiAmJiBwcm90b2NvbCE9Imh0dHAi',
   },
 ];
 
