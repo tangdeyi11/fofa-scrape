@@ -12,12 +12,12 @@ jobs:
       MY_COOKIES: ${{ secrets.MY_COOKIES }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Puppeteer system dependencies
         run: |
@@ -33,7 +33,7 @@ jobs:
         run: rm -rf node_modules package-lock.json
 
       - name: Install dependencies
-        run: npm install puppeteer@22.8.2
+        run: npm install puppeteer@24
 
       - name: Verify puppeteer version
         run: npm list puppeteer puppeteer-core
