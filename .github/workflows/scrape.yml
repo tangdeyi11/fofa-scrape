@@ -26,9 +26,12 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Clean Puppeteer cache
+        run: rm -rf /home/runner/.cache/puppeteer
         
       - name: Install Chrome for Puppeteer   # 👈 新增
-        run: npx puppeteer browsers install chrome
+        run: npx puppeteer browsers install chrome@stable --install-deps
   
       - name: Run scraper
         run: npm start
