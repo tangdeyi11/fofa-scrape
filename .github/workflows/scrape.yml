@@ -1,38 +1,37 @@
 name: Scrape FOFA Pages
-
 on:
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   scrape:
     runs-on: ubuntu-latest
-
     env:
       MY_COOKIES: ${{ secrets.MY_COOKIES }}
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
 
-      # 🚨 关键：完全干净环境（防止版本漂移）
+      - name: Install Chrome system dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 \
+            libxcomposite1 libxdamage1 libxrandr2 libgbm1 \
+            libasound2t64 libxshmfence1
+
       - name: Clean environment
         run: |
           rm -rf node_modules package-lock.json ~/.cache/puppeteer
 
-      # 🚨 关键：锁定 Puppeteer 版本
       - name: Install dependencies
-        run: |
-          npm install puppeteer@22.8.2 --no-cache
+        run: npm install puppeteer@22.8.2
 
       - name: Verify puppeteer version
         run: npm list puppeteer puppeteer-core
