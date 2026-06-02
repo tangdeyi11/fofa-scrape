@@ -26,7 +26,10 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-
+        
+      - name: Install Chrome for Puppeteer   # 👈 新增
+        run: npx puppeteer browsers install chrome
+  
       - name: Run scraper
         run: npm start
 
