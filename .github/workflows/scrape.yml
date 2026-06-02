@@ -2,7 +2,7 @@ name: Scrape FOFA Pages
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # 每6小时执行一次（UTC）
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 permissions:
@@ -24,15 +24,18 @@ jobs:
         with:
           node-version: '24'
 
-      # ✅ 关键修复：强制使用 puppeteer（自带 Chromium）
-      - name: Install dependencies (clean puppeteer)
+      # 🚨 关键：完全干净环境（防止版本漂移）
+      - name: Clean environment
         run: |
-          rm -rf node_modules package-lock.json
-          npm install puppeteer@22
+          rm -rf node_modules package-lock.json ~/.cache/puppeteer
 
-      # （可选）避免缓存污染
-      - name: Clean cache
-        run: rm -rf ~/.cache/puppeteer
+      # 🚨 关键：锁定 Puppeteer 版本
+      - name: Install dependencies
+        run: |
+          npm install puppeteer@22.8.2 --no-cache
+
+      - name: Verify puppeteer version
+        run: npm list puppeteer puppeteer-core
 
       - name: Run scraper
         run: npm start
