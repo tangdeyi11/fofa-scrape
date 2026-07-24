@@ -15,11 +15,17 @@ const urls = [
   },
 ];
 
-// 每次抓取之间的等待时间（毫秒）。
-// 目的：FOFA 服务端对同一账号 Cookie 的"并发会话数"有限制（通常只允许 1 个）。
-// 即使 page.close() 关闭了浏览器标签页，服务端释放该会话状态可能存在短暂延迟，
-// 紧接着立刻发起下一次请求仍有概率被判定为"并发"。加一个间隔可以规避这个窗口期。
-const REQUEST_INTERVAL_MS = 5000;
+// ============ 节流与重试相关配置 ============
+
+// 两次请求之间的最小/最大等待时间（毫秒），实际值在区间内随机取，
+// 避免固定间隔过于规律，被服务端识别为脚本化的固定节奏请求。
+const MIN_INTERVAL_MS = 12000; // 12 秒
+const MAX_INTERVAL_MS = 20000; // 20 秒
+
+// 触发限流（45012 请求速度过快）后的重试配置
+const MAX_RETRIES = 3;              // 单个 URL 最多重试次数
+const RETRY_MIN_WAIT_MS = 30000;    // 重试前最小等待时间（30 秒）
+const RETRY_MAX_WAIT_MS = 60000;    // 重试前最大等待时间（60 秒）
 
 /**
  * 简单的 sleep 工具函数
@@ -27,6 +33,25 @@ const REQUEST_INTERVAL_MS = 5000;
  */
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 生成一个 [min, max] 区间内的随机等待时间（毫秒）
+ * @param {number} min 最小毫秒数
+ * @param {number} max 最大毫秒数
+ */
+function randomInterval(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+/**
+ * 判断页面 HTML 内容是否命中了 FOFA 的限流提示。
+ * FOFA 在请求过快时会返回一个提示页面，其中包含错误码 45012
+ * 以及"请求速度过快"字样，而不是正常的查询结果页面。
+ * @param {string} html 页面 HTML 内容
+ */
+function isRateLimited(html) {
+  return html.includes('45012') || html.includes('请求速度过快');
 }
 
 /**
@@ -70,22 +95,65 @@ function loadCookies() {
 }
 
 /**
+ * 对单个 URL 执行抓取，内置限流（45012）自动重试逻辑。
+ *
+ * 工作方式：
+ * 1. 正常跳转并获取页面 HTML；
+ * 2. 检查 HTML 中是否包含限流提示（45012 / 请求速度过快）；
+ *    - 如果命中限流，说明这次请求被服务端拒绝而不是真正拿到了结果，
+ *      此时不能把这个提示页面当成"抓取成功"写入文件，
+ *      而是等待一段较长时间（30~60 秒随机）后重试；
+ *    - 如果多次重试仍然限流，则抛出异常，交给上层写入错误信息；
+ * 3. 一旦拿到正常内容（不含限流提示），立即返回。
+ *
+ * @param {import('puppeteer').Page} page Puppeteer 页面对象
+ * @param {string} url 要抓取的 FOFA 查询地址
+ * @param {string} name 用于日志标识的名称（如 'iptv'）
+ * @returns {Promise<string>} 页面 HTML 内容
+ */
+async function fetchWithRetry(page, url, name) {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    // 跳转到 FOFA 查询结果页面，等待页面加载完成
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    // 等待页面主要内容加载（可视为简单加载确认）
+    await page.waitForSelector('body');
+
+    // 获取整个页面 HTML 内容
+    const html = await page.content();
+
+    if (isRateLimited(html)) {
+      const waitMs = randomInterval(RETRY_MIN_WAIT_MS, RETRY_MAX_WAIT_MS);
+      console.warn(
+        `⚠️ [${name}] 第 ${attempt}/${MAX_RETRIES} 次请求触发限流（45012），` +
+        `等待 ${Math.round(waitMs / 1000)} 秒后重试...`
+      );
+
+      if (attempt === MAX_RETRIES) {
+        // 已达最大重试次数，仍然限流，放弃并交给上层处理
+        throw new Error('多次重试后仍触发限流（45012 请求速度过快）');
+      }
+
+      await sleep(waitMs);
+      continue; // 进入下一次重试
+    }
+
+    // 未命中限流提示，视为正常内容，直接返回
+    return html;
+  }
+}
+
+/**
  * 主函数，执行抓取流程
  *
- * 关键改动说明（解决"触发并发数限制"问题）：
- * 原代码中 for...of 循环虽然是 await 串行执行，不会真正同时发起两个请求，
- * 但每次循环都用 browser.newPage() 新开一个标签页，且从未关闭上一个。
- * 于是第一个 URL 抓取完成后，那个标签页仍然留在浏览器里、仍加载着 FOFA 结果页
- * （页面里的 JS、可能的心跳/统计请求等仍在后台运行，仍占用着同一份 Cookie 会话）。
- * 紧接着第二次循环又用同一份 Cookie 开了第二个标签页发起查询。
- * 从 FOFA 服务端看，同一账号此时有两个"活跃"的查询页面同时挂着，
- * 就会被判定为触发并发数限制（多数 FOFA 账号等级只允许 1 个并发会话）。
- *
- * 修复方式：
- * 1. 每次用完当前 page 立刻 close()，保证任意时刻只有一个 page 持有该 Cookie 会话；
- * 2. 用 finally 保证无论成功还是抛异常都会关闭 page，不会遗漏；
- * 3. 关闭后再等待一小段时间，给 FOFA 服务端释放会话状态留出缓冲期，
- *    避免关闭 tab 后立刻发起下一次请求仍撞上并发窗口期。
+ * 相比上一版的改动说明：
+ * 1. 固定的 5 秒间隔改为 12~20 秒随机间隔，降低请求节奏的规律性，
+ *    避免被 FOFA 判定为脚本化的高频请求（对应本次遇到的 45012 限流）；
+ * 2. 新增 fetchWithRetry：即使某次请求命中限流提示页面，也不会把这个
+ *    提示页面当成正常结果写入文件，而是等待更长时间后自动重试，
+ *    多次重试仍失败才会真正报错；
+ * 3. 保留上一版已经修复的问题：每次抓取完立刻 page.close()，
+ *    避免同一账号 Cookie 同时被多个标签页占用而触发"并发数限制"。
  */
 async function start() {
   // 加载 Cookie
@@ -110,34 +178,32 @@ async function start() {
       // 设置 Cookie（登录态）
       await page.setCookie(...cookies);
 
-      // 跳转到 FOFA 查询结果页面，等待页面加载完成
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-
-      // 等待页面主要内容加载（可视为简单加载确认）
-      await page.waitForSelector('body');
-
-      // 获取整个页面 HTML 内容
-      const html = await page.content();
+      // 带限流自动重试的抓取
+      const html = await fetchWithRetry(page, url, name);
 
       // 写入本地文件（iptv.txt、iptvdl.txt 等）
       const filePath = path.join(__dirname, `${name}.txt`);
       fs.writeFileSync(filePath, html);
       console.log(`✅ 抓取完成：${filePath}`);
     } catch (err) {
-      // 如果抓取失败，写入错误信息到对应的输出文件，避免 GitHub Actions 整体失败
+      // 如果抓取失败（包括多次重试后仍限流的情况），
+      // 写入错误信息到对应的输出文件，避免 GitHub Actions 整体失败
       const filePath = path.join(__dirname, `${name}.txt`);
       const errorMsg = `❌ 抓取失败：${err.message || err.toString()}`;
       fs.writeFileSync(filePath, errorMsg);
       console.error(`❌ 抓取失败（${name}）：`, err);
       console.log(`⚠️ 写入错误信息到：${filePath}`);
     } finally {
-      // 关键修复点 1：无论成功还是失败，都要关闭当前标签页，
+      // 无论成功还是失败，都要关闭当前标签页，
       // 确保不会有上一次查询的页面残留在浏览器中占用 FOFA 的并发会话名额。
       await page.close();
 
-      // 关键修复点 2：关闭后等待一段时间再进入下一次循环，
-      // 给 FOFA 服务端释放会话状态留出缓冲时间，降低仍被判定为并发的概率。
-      await sleep(REQUEST_INTERVAL_MS);
+      // 关闭后等待一段随机时间再进入下一次循环：
+      // 一方面给 FOFA 服务端释放会话状态留出缓冲期（避免并发判定），
+      // 另一方面降低请求节奏的规律性（避免限流判定）。
+      const waitMs = randomInterval(MIN_INTERVAL_MS, MAX_INTERVAL_MS);
+      console.log(`⏳ 等待 ${Math.round(waitMs / 1000)} 秒后处理下一个 URL...`);
+      await sleep(waitMs);
     }
   }
 
